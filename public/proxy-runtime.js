@@ -2,10 +2,14 @@ function proxyRuntime(config) {
   'use strict';
   const prefix='/__proxy/';
   const token=origin=>btoa(origin).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+  // Hash routers can copy the proxy pathname into their client-side route.
+  // Strip only this document's transport prefix, preserving the real fragment.
+  const hashPrefix=new RegExp(`^#(!?)/__proxy/${token(new URL(config.target).origin)}(?=/|$)`);
+  const cleanHash=value=>value.replace(hashPrefix,'#$1');
   const unproxy = value=>{
     const url=new URL(value,location.href);const match=url.pathname.match(/^\/__proxy\/([A-Za-z0-9_-]+)(\/.*)?$/);
     if(!match)return config.base;
-    try{return atob(match[1].replace(/-/g,'+').replace(/_/g,'/'))+(match[2]||'/')+url.search+url.hash}catch{return config.base}
+    try{return atob(match[1].replace(/-/g,'+').replace(/_/g,'/'))+(match[2]||'/')+url.search+cleanHash(url.hash)}catch{return config.base}
   };
   const route = value=>{
     if(typeof value!=='string'||!value||/^(#|data:|blob:|javascript:|mailto:|tel:)/i.test(value))return value;
@@ -35,8 +39,18 @@ function proxyRuntime(config) {
   }
   const submitOriginal=HTMLFormElement.prototype.submit;
   HTMLFormElement.prototype.submit=function(){setAttribute.call(this,'action',route(this.getAttribute('action')||unproxy(location.href)));return submitOriginal.call(this)};
+  const replaceStateOriginal=history.replaceState;
+  function repairHash() {
+    const hash=cleanHash(location.hash);
+    if(hash!==location.hash){const url=new URL(location.href);url.hash=hash;replaceStateOriginal.call(history,history.state,'',url.href);}
+  }
   for(const method of ['pushState','replaceState']){
-    const original=history[method];history[method]=function(state,title,url){const result=original.call(this,state,title,url==null?url:route(String(url)));queueMicrotask(()=>parent.postMessage({type:'folden:proxy-ready',url:unproxy(location.href)},config.shellOrigin));return result};
+    const original=history[method];history[method]=function(state,title,url){
+      let next=url;
+      if(url!=null){next=new URL(route(String(url)),location.href);next.hash=cleanHash(next.hash);next=next.href;}
+      const result=original.call(this,state,title,next);
+      queueMicrotask(()=>parent.postMessage({type:'folden:proxy-ready',url:unproxy(location.href)},config.shellOrigin));return result;
+    };
   }
   // Baidu's current search box navigates via location.href rather than a native form.
   // Handle this adapter before its inline handlers so the result remains inside the proxy.
@@ -71,7 +85,9 @@ function proxyRuntime(config) {
       parent.postMessage({type:'folden:captured',id,bitmap},config.shellOrigin,[bitmap]);
     }catch{parent.postMessage({type:'folden:captured',id,error:true},config.shellOrigin)}
   });
-  const report=()=>parent.postMessage({type:'folden:proxy-ready',url:unproxy(location.href)},config.shellOrigin);
+  const report=()=>{repairHash();parent.postMessage({type:'folden:proxy-ready',url:unproxy(location.href)},config.shellOrigin);};
+  repairHash();
   if(document.readyState==='loading')addEventListener('DOMContentLoaded',report,{once:true});else report();
   addEventListener('popstate',report);
+  addEventListener('hashchange',report);
 }

@@ -35,7 +35,9 @@ function layout() {
   const area=$('stage').getBoundingClientRect();
   const scale=Math.max(.05, Math.min(1,area.width/width,area.height/height));
   $('device-wrap').style.cssText=`width:${width*scale}px;height:${height*scale}px`;
-  $('device').style.cssText=`width:${width}px;height:${height}px;transform:scale(${scale})`;
+  // Layout zoom keeps native iframe scrollbar hit testing aligned with its
+  // rendered position; transform scaling can leave thumb dragging stuck.
+  $('device').style.cssText=`width:${width}px;height:${height}px;zoom:${scale}`;
   $('device').className=`device ${m.inner?'inner':'outer'} ${m.portrait?'portrait':'landscape'}`;
   $('frame').src=`/assets/frame-${m.inner?'inner':'outer'}.png`;
   $('frame').style.cssText=`width:${base.w}px;height:${base.h}px;left:${(width-base.w)/2}px;top:${(height-base.h)/2}px;transform:rotate(${rotate?90:0}deg)`;
@@ -45,6 +47,7 @@ function layout() {
   $('mode-name').textContent=m.name; $('dimensions').textContent=`${m.w} × ${m.h}`; $('scale').textContent=`${Math.round(scale*100)}%`;
   document.querySelectorAll('[data-mode]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.mode===state.mode)));
   $('reserved').hidden=!state.safe; $('safe-toggle').setAttribute('aria-pressed',String(state.safe));
+  $('camera-label').textContent=m.inner?'内屏摄像头':'摄像头';
 }
 function theme() {
   document.body.classList.toggle('dark',state.theme==='dark');

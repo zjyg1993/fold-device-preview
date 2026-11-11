@@ -128,9 +128,9 @@ export function createMotion({state,modes,layout,save}) {
       const wrap=$('device-wrap');
       // Both physical screens are centered inside their original frame artwork.
       // Center independently of scale so changing the fitted size does not move the device.
-      device.style.left=`${(parseFloat(wrap.style.width)-width*scale)/2}px`;
-      device.style.top=`${(parseFloat(wrap.style.height)-height*scale)/2}px`;
-      device.style.transform=`scale(${scale})`;
+      device.style.left=`${(parseFloat(wrap.style.width)-width*scale)/(2*scale)}px`;
+      device.style.top=`${(parseFloat(wrap.style.height)-height*scale)/(2*scale)}px`;
+      device.style.zoom=String(scale);
       frame.style.cssText=`width:${shell.width}px;height:${shell.height}px;left:${(width-shell.width)/2}px;top:${(height-shell.height)/2}px;transform:rotate(${degree}deg)`;
       screen.style.cssText=`left:${(width-physical.width)/2}px;top:${(height-physical.height)/2}px;width:${physical.width}px;height:${physical.height}px;border-radius:${from.inner?'40px':'4px 55px 55px 4px'};transform:rotate(${degree}deg);transform-origin:center`;
       for(const element of content) {
