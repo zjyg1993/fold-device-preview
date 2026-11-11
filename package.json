@@ -1,0 +1,14 @@
+{
+  "name": "folden-device",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node server.mjs",
+    "start": "node server.mjs",
+    "check": "node --check server.mjs && node --check public/app.js && node --check public/motion.js && node --check public/preview-origin.js && node --check public/proxy-runtime.js && node --check public/vendor/optics.js && node --check public/vendor/snapshot.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

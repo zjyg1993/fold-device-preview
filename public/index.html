@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light dark">
+  <title>Folden Device · 折叠屏网页预览</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='3' y='5' width='26' height='22' rx='5' fill='%232c303b'/%3E%3Cpath d='M16 7v18' stroke='%23fff'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/style.css"><script type="module" src="/app.js"></script>
+</head>
+<body>
+  <header class="header"><a class="brand" href="/" aria-label="Folden Device 首页"><svg viewBox="0 0 28 28" aria-hidden="true"><rect x="3" y="4" width="22" height="20" rx="4"/><path d="M14 5v18"/></svg><span>Folden<span class="brand-light">Device</span></span></a><span class="header-note">折叠屏网页预览</span></header>
+  <main id="stage" class="stage" aria-label="设备模拟显示">
+    <div id="device-wrap" class="device-wrap"><div id="device" class="device">
+      <img id="frame" class="device-frame" src="/assets/frame-inner.png" alt="折叠设备边框" draggable="false">
+      <div id="screen" class="screen">
+        <div id="empty" class="empty"><div class="empty-icon" data-icon="globe"></div><h1>在这里，看见你的网页</h1><p>在下方输入网址，开始设备预览</p><span>切换内外屏，探索每一种布局</span></div>
+        <iframe id="preview" title="设备内的网页预览" hidden referrerpolicy="strict-origin-when-cross-origin" allow="fullscreen" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals allow-downloads"></iframe>
+        <div id="reserved" class="reserved" hidden aria-hidden="true"><div class="fold"><span>折叠区域 28px</span></div><div class="camera"><span>摄像头</span></div></div>
+      </div>
+    </div></div>
+    <div id="motion-layer" class="motion-layer" aria-hidden="true" hidden></div>
+  </main>
+  <footer class="footer">
+    <div class="viewport-info"><span id="mode-name">横屏内屏</span><span class="dot">·</span><span id="dimensions">880 × 624</span><span class="dot">·</span><span id="scale">100%</span></div>
+    <form id="url-form" class="url-form" novalidate><span class="input-icon" data-icon="globe"></span><input id="url" type="text" inputmode="url" autocomplete="url" spellcheck="false" aria-label="预览网址" placeholder="输入网址，如 localhost:3000" aria-describedby="hint"><button type="button" id="clear" class="clear" aria-label="清空网址" title="清空网址" hidden>×</button><button type="submit" class="submit"><span>打开</span><span data-icon="arrow"></span></button></form>
+    <div id="hint" class="hint" role="status" aria-live="polite">支持网址和本地项目地址</div>
+    <nav class="toolbar" aria-label="模拟器控制栏">
+      <button id="theme" title="切换为深色模式"><span data-icon="sun"></span><span id="theme-label">浅色</span></button>
+      <button id="refresh" title="刷新网页" aria-label="刷新网页"><span data-icon="refresh"></span></button>
+      <div class="modes" role="group" aria-label="设备姿态"><button data-mode="outerPortrait" title="外屏竖屏 · 432 × 624" aria-label="外屏竖屏" aria-pressed="false"><span data-icon="phone"></span></button><button data-mode="outerLandscape" title="外屏横屏 · 624 × 432" aria-label="外屏横屏" aria-pressed="false"><span data-icon="phone-wide"></span></button><button data-mode="innerLandscape" title="横屏内屏 · 880 × 624" aria-label="横屏内屏" aria-pressed="true"><span data-icon="tablet-wide"></span></button><button data-mode="innerPortrait" title="竖屏内屏 · 624 × 880" aria-label="竖屏内屏" aria-pressed="false"><span data-icon="tablet"></span></button></div>
+      <button id="open-external" title="在新窗口打开网页" aria-label="新窗口打开" disabled><span data-icon="external"></span></button>
+      <span class="divider"></span><button id="proxy-toggle" title="外部网址通过本地代理加载" aria-pressed="true"><span data-icon="globe"></span><span>代理</span></button><button id="safe-toggle" title="显示摄像头与折叠区域等保留区域" aria-pressed="false"><span data-icon="eye"></span><span>保留区域</span></button>
+    </nav>
+    <p class="embed-note" id="embed-note" hidden>外部网址使用本地代理预览；登录与验证页面可用新窗口打开。</p>
+  </footer>
+</body>
+</html>
