@@ -6,7 +6,15 @@
   "scripts": {
     "dev": "node server.mjs",
     "start": "node server.mjs",
-    "check": "node --check server.mjs && node --check public/app.js && node --check public/motion.js && node --check public/preview-origin.js && node --check public/proxy-runtime.js && node --check public/vendor/optics.js && node --check public/vendor/snapshot.js"
+    "check": "node --check server.mjs && node --check worker.mjs && node --check lib/preview-proxy.mjs && node --check public/app.js && node --check public/motion.js && node --check public/preview-origin.js && node --check public/proxy-runtime.js && node --check public/vendor/optics.js && node --check public/vendor/snapshot.js",
+    "dev:worker": "npx --yes --package=wrangler@4.160.0 wrangler dev",
+    "deploy:worker": "npm run deploy",
+    "check:worker": "npx --yes --package=wrangler@4.160.0 wrangler deploy --dry-run --outdir dist/worker",
+    "build": "npm run check",
+    "deploy": "npm run check && npx --yes --package=wrangler@4.160.0 wrangler deploy",
+    "login": "npx --yes --package=wrangler@4.160.0 wrangler login",
+    "dev:node": "node server.mjs",
+    "start:node": "node server.mjs"
   },
   "engines": {
     "node": ">=18"

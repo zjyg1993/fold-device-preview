@@ -2,29 +2,25 @@
 
 本地折叠屏网页预览工具。以 DuoSimulator 为参考，移除侧栏导航与弹幕，将底部输入替换为网址输入。设备边框素材来自 https://duo.noctrue.com/simulator，仅用于本地使用。
 
-## Render 发布
+## 本地运行与 Git 发布
 
-项目已包含 `render.yaml`、Node.js 24 版本配置及 `/healthz` 健康检查。按 [Render 部署说明](DEPLOY-RENDER.md) 将源码上传 GitHub，然后在 Render 创建 Blueprint 或 Node Web Service。线上使用 Render 提供的 HTTPS 地址与自动分配的 `PORT`。
+本地使用 Node 自带 HTTP 服务，Cloudflare 使用 Workers 入口；两边共用页面、动效、代理重写逻辑和运行时脚本。代理默认开启，网址默认填写 `h5.maycur.com`。
 
-## 运行
-
-需要 Node.js 18 或更新版本，无第三方依赖，无需 npm install。
-
-```sh
-./start.sh      # 后台启动
-./stop.sh       # 停止
-./restart.sh    # 重启
-```
-
-脚本可从任意目录调用；PID 与日志保存在项目 `.run/` 目录，启动失败可查看 `.run/server.log`。
-
-前台开发也可运行：
+本地需要 Node.js 18 或更新版本，没有第三方运行依赖，不需要 `npm install` 或 `node_modules`：
 
 ```sh
 npm run dev
 ```
 
-访问 http://localhost:9218 。默认监听 `127.0.0.1`，仅允许本机访问。指定端口：`PORT=9219 npm run dev`；需要临时允许其他设备访问时显式设置：`HOST=0.0.0.0 npm run dev`。修改监听配置后需手动重启服务。
+访问 http://localhost:9218 。`npm start` 也可前台运行。后台运行仍使用 `./start.sh`；停止、重启分别使用 `./stop.sh`、`./restart.sh`。PID 和日志保存在 `.run/`。若服务需要重启，请自行操作。
+
+在 Cloudflare 为现有 Worker 绑定 Git 仓库，设置构建命令 `npm run build`、部署命令 `npm run deploy`、构建环境变量 `NODE_VERSION=24`。配置一次后，平时只需本地预览，然后提交并推送生产分支，即可自动发布。[完整部署步骤](DEPLOY-CLOUDFLARE.md)。
+
+Wrangler 仅在执行部署或显式调试 Worker 时按需下载，不再作为项目依赖安装。Git 自动部署时由 Cloudflare 构建环境下载，本机无需维护这套工具。
+
+## Render 部署
+
+原有 Node 运行方式和 Render 配置继续保留，见 [Render 部署说明](DEPLOY-RENDER.md)。
 
 ## 使用
 
@@ -36,11 +32,11 @@ npm run dev
 
 ## 网址代理
 
-外部网址默认通过本地 HTTP 代理加载，例如直接输入 `www.baidu.com`。代理重写 HTML、样式、资源、链接、常见动态请求及表单地址，并提供与本地来源相符的嵌入响应。百度新版搜索框另有适配，可在模拟器内检索和显示结果。
+代理默认开启，输入框默认填写 `h5.maycur.com`。需要直接嵌入页面时，可关闭底部“代理”按钮。代理重写 HTML、样式、资源、链接、常见动态请求及表单地址，并提供与预览来源相符的嵌入响应。百度新版搜索框另有适配，可在模拟器内检索和显示结果。
 
 底部“代理”按钮可以切换直接加载，适合自己的开发项目。打开本地示例时直接加载。本机通过 `localhost` 访问时，远程页面使用独立的 `127.0.0.1` 来源；其他设备访问时，代理使用浏览器当前访问地址，并通过不含 `allow-same-origin` 的 iframe 沙箱隔离模拟器偏好。显式开放监听后，局域网地址和 HTTPS 反向代理均可使用代理模式；HTTPS 反向代理需传递 `Host` 和 `X-Forwarded-Proto: https`。服务默认仅监听本机回环地址；不会转发或保存远程登录 Cookie。跨域浏览器安全设置和证书校验保持启用。
 
-更改 `server.mjs` 后，需要手动执行 `./restart.sh`。仅修改前端文件时，刷新浏览器即可。
+前端文件更新后刷新浏览器即可；更改 `server.mjs` 或 `lib/preview-proxy.mjs` 后，请手动重启服务。
 
 ## 设备动效
 
