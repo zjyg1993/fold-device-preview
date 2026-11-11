@@ -5,7 +5,7 @@ import path from 'node:path';
 
 const root = path.resolve(fileURLToPath(new URL('./public/', import.meta.url)));
 const port = Number(process.env.PORT || 9218);
-const host = process.env.HOST || '0.0.0.0';
+const host = process.env.HOST || '127.0.0.1';
 const proxyPrefix = '/__proxy/';
 const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.png': 'image/png', '.svg': 'image/svg+xml' };
 

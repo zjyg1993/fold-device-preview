@@ -22,14 +22,14 @@
   </main>
   <footer class="footer">
     <div class="viewport-info"><span id="mode-name">横屏内屏</span><span class="dot">·</span><span id="dimensions">880 × 624</span><span class="dot">·</span><span id="scale">100%</span></div>
-    <form id="url-form" class="url-form" novalidate><span class="input-icon" data-icon="globe"></span><input id="url" type="text" inputmode="url" autocomplete="url" spellcheck="false" aria-label="预览网址" placeholder="输入网址，如 localhost:3000" aria-describedby="hint"><button type="button" id="clear" class="clear" aria-label="清空网址" title="清空网址" hidden>×</button><button type="submit" class="submit"><span>打开</span><span data-icon="arrow"></span></button></form>
+    <form id="url-form" class="url-form" novalidate><span class="input-icon" data-icon="globe"></span><input id="url" type="text" value="h5.maycur.com" inputmode="url" autocomplete="url" spellcheck="false" aria-label="预览网址" placeholder="输入网址，如 localhost:3000" aria-describedby="hint"><button type="button" id="clear" class="clear" aria-label="清空网址" title="清空网址">×</button><button type="submit" class="submit"><span>打开</span><span data-icon="arrow"></span></button></form>
     <div id="hint" class="hint" role="status" aria-live="polite">支持网址和本地项目地址</div>
     <nav class="toolbar" aria-label="模拟器控制栏">
       <button id="theme" title="切换为深色模式"><span data-icon="sun"></span><span id="theme-label">浅色</span></button>
       <button id="refresh" title="刷新网页" aria-label="刷新网页"><span data-icon="refresh"></span></button>
       <div class="modes" role="group" aria-label="设备姿态"><button data-mode="outerPortrait" title="外屏竖屏 · 432 × 624" aria-label="外屏竖屏" aria-pressed="false"><span data-icon="phone"></span></button><button data-mode="outerLandscape" title="外屏横屏 · 624 × 432" aria-label="外屏横屏" aria-pressed="false"><span data-icon="phone-wide"></span></button><button data-mode="innerLandscape" title="横屏内屏 · 880 × 624" aria-label="横屏内屏" aria-pressed="true"><span data-icon="tablet-wide"></span></button><button data-mode="innerPortrait" title="竖屏内屏 · 624 × 880" aria-label="竖屏内屏" aria-pressed="false"><span data-icon="tablet"></span></button></div>
       <button id="open-external" title="在新窗口打开网页" aria-label="新窗口打开" disabled><span data-icon="external"></span></button>
-      <span class="divider"></span><button id="proxy-toggle" title="外部网址通过本地代理加载" aria-pressed="true"><span data-icon="globe"></span><span>代理</span></button><button id="safe-toggle" title="显示摄像头与折叠区域等保留区域" aria-pressed="false"><span data-icon="eye"></span><span>保留区域</span></button>
+      <span class="divider"></span><button id="proxy-toggle" title="外部网址通过本地代理加载" aria-pressed="false"><span data-icon="globe"></span><span>代理</span></button><button id="safe-toggle" title="显示摄像头与折叠区域等保留区域" aria-pressed="false"><span data-icon="eye"></span><span>保留区域</span></button>
     </nav>
     <p class="embed-note" id="embed-note" hidden>外部网址使用本地代理预览；登录与验证页面可用新窗口打开。</p>
   </footer>

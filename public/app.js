@@ -22,7 +22,7 @@ const modes = {
   outerPortrait: { name:'外屏竖屏', w:432, h:624, inner:false, portrait:true },
   outerLandscape: { name:'外屏横屏', w:624, h:432, inner:false, portrait:false },
 };
-const state = { mode:'innerLandscape', url:'', safe:false, theme:'light', proxy:true, timer:null };
+const state = { mode:'innerLandscape', url:'', safe:false, theme:'light', proxy:false, timer:null };
 try { const saved = JSON.parse(localStorage.getItem('folden-preferences') || '{}'); if (modes[saved.mode]) state.mode = saved.mode; if(saved.theme === 'dark') state.theme = 'dark'; state.safe = saved.safe === true; } catch {}
 function save() { try { localStorage.setItem('folden-preferences', JSON.stringify({mode:state.mode, theme:state.theme, safe:state.safe})); } catch {} }
 function hint(text, error=false) { $('hint').textContent=text; $('hint').classList.toggle('error', error); }
