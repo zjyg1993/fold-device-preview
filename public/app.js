@@ -22,9 +22,9 @@ const modes = {
   outerPortrait: { name:'外屏竖屏', w:432, h:624, inner:false, portrait:true },
   outerLandscape: { name:'外屏横屏', w:624, h:432, inner:false, portrait:false },
 };
-const state = { mode:'innerLandscape', url:'', safe:false, theme:'light', proxy:true, timer:null };
-try { const saved = JSON.parse(localStorage.getItem('folden-preferences') || '{}'); if (modes[saved.mode]) state.mode = saved.mode; if(saved.theme === 'dark') state.theme = 'dark'; state.safe = saved.safe === true; } catch {}
-function save() { try { localStorage.setItem('folden-preferences', JSON.stringify({mode:state.mode, theme:state.theme, safe:state.safe})); } catch {} }
+const state = { mode:'innerLandscape', url:'', safe:false, theme:'light', proxy:false, timer:null };
+try { const saved = JSON.parse(localStorage.getItem('folden-preferences') || '{}'); if (modes[saved.mode]) state.mode = saved.mode; if(saved.theme === 'dark') state.theme = 'dark'; } catch {}
+function save() { try { localStorage.setItem('folden-preferences', JSON.stringify({mode:state.mode, theme:state.theme})); } catch {} }
 function hint(text, error=false) { $('hint').textContent=text; $('hint').classList.toggle('error', error); }
 function layout() {
   const m=modes[state.mode];
@@ -85,6 +85,7 @@ function previewURL(url) {
 function load(url) {
   clearTimeout(state.timer);state.url=url; $('url').value=url; $('clear').hidden=false; $('empty').hidden=true; $('preview').hidden=false; $('open-external').disabled=false; $('embed-note').hidden=false;
   configurePreview($('preview'), state.proxy && new URL(url).origin !== location.origin);
+  $('embed-note').textContent=state.proxy?'外部网址使用本地代理预览；登录与验证页面可用新窗口打开。':'当前直接嵌入网页；可按需手动开启代理。';
   hint(state.proxy?'正在通过本地代理加载…':'正在直接加载网页…'); $('preview').src=previewURL(url);
   state.timer=setTimeout(()=>hint('加载时间较长；若网页空白，可尝试新窗口打开'),12000);
 }
