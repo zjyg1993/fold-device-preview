@@ -1,147 +1,137 @@
-import { captureElement } from './vendor/snapshot.js';
-import { proxyMessageOrigin } from './preview-origin.js';
-
 const $ = id => document.getElementById(id);
 const INNER = {width:880,height:624};
 const OUTER = {width:432,height:624};
 const innerFrame = {width:954.576271,height:699.237378,screenLeft:37.288136,screenTop:37.618689};
 const outerFrame = {width:487.218045,height:673.735793,screenLeft:27.609023,screenTop:24.867897};
-const outerLeft=-(8/1050*outerFrame.width+3);
-const outerTop=(innerFrame.height-outerFrame.height)/2;
 const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 const ease = t => (1-Math.cos(t*Math.PI))/2;
 const angle = mode => mode.inner ? (mode.portrait?90:0) : (mode.portrait?0:90);
 function tween(duration, update) {
-  return new Promise(resolve=>{
-    const start=performance.now();
-    const tick=now=>{const t=Math.min(1,(now-start)/duration);update(ease(t),t);if(t<1)requestAnimationFrame(tick);else resolve();};
+  return new Promise((resolve,reject)=>{
+    let previous,elapsed=0;
+    const tick=now=>{
+      try {
+        // Start on the first painted frame. Expensive target-page reflows must
+        // not consume the entire transition before intermediate poses appear.
+        if(previous!==undefined)elapsed+=Math.max(0,Math.min(50,now-previous));
+        previous=now;
+        const t=Math.min(1,elapsed/duration);
+        update(ease(t),t);
+        if(t<1)requestAnimationFrame(tick);else resolve();
+      } catch(error){reject(error);}
+    };
     requestAnimationFrame(tick);
   });
 }
-function within(promise, ms, fallback) {
-  let timer;
-  return Promise.race([promise,new Promise(resolve=>timer=setTimeout(()=>resolve(fallback()),ms))]).finally(()=>clearTimeout(timer));
-}
-function canvas(w,h) {const c=document.createElement('canvas');c.width=w;c.height=h;return c;}
-function rotateSnapshot(image,mode) {
-  if(!angle(mode))return image;
-  const c=canvas(image.height,image.width),ctx=c.getContext('2d');
-  ctx.translate(0,c.height);ctx.rotate(-Math.PI/2);ctx.drawImage(image,0,0);return c;
-}
 export function createMotion({state,modes,layout,save}) {
+  let busy=false,rendererPromise;
   const layer=$('motion-layer');
-  let busy=false, rendererPromise, renderer, captureID=0;
-  const requests=new Map();
-  window.addEventListener('message',event=>{
-    if(event.source!==$('preview').contentWindow||event.origin!==proxyMessageOrigin||event.data?.type!=='folden:captured')return;
-    const resolve=requests.get(event.data.id);requests.delete(event.data.id);
-    if(resolve)resolve(event.data.bitmap||null);else event.data.bitmap?.close();
-  });
-  function fallback() {
-    const m=modes[state.mode],c=canvas(m.w,m.h),ctx=c.getContext('2d');
-    ctx.fillStyle=state.theme==='dark'?'#202126':'#fff';ctx.fillRect(0,0,m.w,m.h);
-    ctx.textAlign='center';ctx.fillStyle=state.theme==='dark'?'#b0b6c4':'#8590a3';
-    ctx.font='17px system-ui';ctx.fillText(state.url?new URL(state.url).hostname:'在下方输入网址，开始设备预览',m.w/2,m.h/2);
-    return c;
-  }
-  async function snapshot() {
-    const m=modes[state.mode];
-    try {
-      if(!state.url)return await within(captureElement($('empty'),m.w,m.h,getComputedStyle($('screen')).backgroundColor),700,fallback);
-      const preview=$('preview');
-      if(preview.contentDocument?.body)return await within(captureElement(preview.contentDocument.body,m.w,m.h,'#fff'),700,fallback);
-      if(state.proxy) {
-        const id=++captureID;
-        const image=await new Promise(resolve=>{
-          const timer=setTimeout(()=>{requests.delete(id);resolve(null)},700);
-          requests.set(id,value=>{clearTimeout(timer);resolve(value)});
-          preview.contentWindow.postMessage({type:'folden:capture',id},proxyMessageOrigin === 'null' ? '*' : proxyMessageOrigin);
-        });
-        if(image){const c=canvas(m.w,m.h);c.getContext('2d').drawImage(image,0,0);image.close();return c;}
-      }
-    } catch {}
-    return fallback();
-  }
-  function getRenderer() {
-    if(!rendererPromise)rendererPromise=import('./vendor/optics.js').then(async ({createOptics})=>{
+  const outerLeft=-(8/1050*outerFrame.width+3);
+  const outerTop=(innerFrame.height-outerFrame.height)/2;
+  function getRenderer(){
+    if(!rendererPromise)rendererPromise=import('./vendor/optics.js').then(async({createOptics})=>{
       const rotor=document.createElement('div');rotor.className='optical-rotor';rotor.hidden=true;layer.appendChild(rotor);
-      const optics=await createOptics(rotor,{device:innerFrame,innerFrame,outerFrame,innerScreen:INNER,outerScreen:OUTER,outerLeft,outerTop,innerFrameUrl:'/assets/frame-inner.png',outerFrameUrl:'/assets/frame-outer.png'});
-      return renderer={optics,rotor};
-    }).catch(error=>{rendererPromise=null;layer.replaceChildren();throw error});
+      try{
+        const optics=await createOptics(rotor,{device:innerFrame,innerFrame,outerFrame,innerScreen:INNER,outerScreen:OUTER,outerLeft,outerTop,innerFrameUrl:'/assets/frame-inner.png',outerFrameUrl:'/assets/frame-outer.png'});
+        return {rotor,optics};
+      }catch(error){rotor.remove();throw error;}
+    }).catch(error=>{rendererPromise=null;throw error;});
     return rendererPromise;
   }
-  function busyState(value, cover = true) {
+  function fit(mode){
+    const area=$('stage').getBoundingClientRect(),shell=mode.inner?innerFrame:outerFrame;
+    const turned=angle(mode)%180!==0;
+    return Math.min(1,area.width/(turned?shell.height:shell.width),area.height/(turned?shell.width:shell.height));
+  }
+  async function hingeFold(from,to){
+    // Only the frame is drawn by WebGL. The original iframe remains live below
+    // its projected aperture, including when cross-origin DOM access is denied.
+    const {rotor,optics}=await getRenderer();
+    const device=$('device'),wrap=$('device-wrap'),screen=$('screen'),frame=$('frame');
+    const content=[$('preview'),$('empty'),$('reserved')],styles=content.map(e=>e.style.cssText);
+    const shade=document.createElement('div');shade.setAttribute('aria-hidden','true');screen.appendChild(shade);
+    const first=from.inner?180:0,last=to.inner?180:0;
+    try{
+      state.mode=Object.keys(modes).find(key=>modes[key]===to);layout();
+      layer.hidden=false;rotor.hidden=false;
+      function render(t,raw){
+        const opening=lerp(first,last,t),degree=lerp(angle(from),angle(to),t);
+        optics.render(opening);
+        const surface=optics.getLiveSurface();
+        const scale=lerp(fit(from),fit(to),t)*(1-(angle(from)!==angle(to)?.08:0)*Math.sin(raw*Math.PI));
+        const offset=(-outerFrame.width/2-outerLeft)*(1-opening/180);
+        const transform=`translate(-50%,-50%) rotate(${degree}deg) scale(${scale}) translateX(${offset}px)`;
+        rotor.style.transform=transform;
+        wrap.style.cssText=`position:absolute;left:50%;top:50%;width:${innerFrame.width}px;height:${innerFrame.height}px;transform:${transform}`;
+        device.style.cssText=`width:${innerFrame.width}px;height:${innerFrame.height}px;zoom:1`;
+        frame.style.opacity='0';
+        screen.style.cssText=`left:${surface.left}px;top:${surface.top}px;width:${surface.width}px;height:${surface.height}px;border-radius:0;clip-path:${surface.clipPath}`;
+        const radians=degree*Math.PI/180,cosine=Math.abs(Math.cos(radians)),sine=Math.abs(Math.sin(radians));
+        const w=surface.width*cosine+surface.height*sine,h=surface.width*sine+surface.height*cosine;
+        for(const element of content)element.style.cssText=`position:absolute;left:${(surface.width-w)/2}px;top:${(surface.height-h)/2}px;width:${w}px;height:${h}px;transform:rotate(${-degree}deg);transform-origin:center`;
+        $('preview').style.pointerEvents='none';
+        shade.style.cssText=`position:absolute;inset:0;z-index:2;pointer-events:none;background:linear-gradient(90deg,rgba(0,0,0,${.28*Math.sin(opening*Math.PI/180)}),transparent 65%)`;
+      }
+      render(0,0);
+      await tween(900,render);
+    }finally{
+      shade.remove();rotor.hidden=true;layer.hidden=true;
+      content.forEach((element,index)=>element.style.cssText=styles[index]);layout();
+    }
+  }
+  const lerp=(a,b,t)=>a+(b-a)*t;
+  function busyState(value) {
     busy=value;
     $('stage').setAttribute('aria-busy',String(value));
     document.querySelectorAll('[data-mode],#theme,#refresh,#safe-toggle,#proxy-toggle,#clear,.submit').forEach(button=>button.disabled=value);
-    $('device-wrap').classList.toggle('motion-covered',value && cover);
   }
-  function fit(mode) {
-    const box=$('stage').getBoundingClientRect();
-    const w=mode.inner?innerFrame.width:outerFrame.width;
-    const h=mode.inner?innerFrame.height:outerFrame.height;
-    const a=angle(mode)%180;
-    return Math.min(1,box.width/(a?h:w),box.height/(a?w:h));
-  }
-  function rotorTransform(rotor,degree,scale,opening) {
-    const offset=(-outerFrame.width/2-outerLeft)*(1-opening/180);
-    rotor.style.transform=`translate(-50%,-50%) rotate(${degree}deg) scale(${scale}) translateX(${offset}px)`;
-  }
-  async function fold(from,to,start) {
-    const {optics,rotor}=await getRenderer();rotor.hidden=false;
-    const first=from.inner?180:0,last=to.inner?180:0;
-    optics.setSnapshot(from.inner?'inner':'outer',rotateSnapshot(start,from));
-    optics.render(first);rotorTransform(rotor,angle(from),fit(from),first);
-    state.mode=Object.keys(modes).find(key=>modes[key]===to);layout();
-    const target=await snapshot();optics.setSnapshot(to.inner?'inner':'outer',rotateSnapshot(target,to));
-    await tween(900,(t,raw)=>{
-      const opening=first+(last-first)*t;
-      optics.render(opening);
-      rotorTransform(rotor,angle(from)+(angle(to)-angle(from))*t,(fit(from)+(fit(to)-fit(from))*t)*(1-(angle(from)!==angle(to)?.08:0)*Math.sin(raw*Math.PI)),opening);
-    });
-  }
-  async function rotate(from,to) {
-    // Keep the existing iframe live. A single animation clock drives the frame,
-    // screen aperture, viewport reflow, and the content's counter-rotation.
-    // No capture is needed, including for cross-origin pages.
-    const device=$('device'), screen=$('screen'), frame=$('frame');
+  async function transition(from,to) {
+    const device=$('device'),screen=$('screen'),frame=$('frame'),wrap=$('device-wrap');
     const content=[$('preview'),$('empty'),$('reserved')];
     const originalStyles=content.map(element=>element.style.cssText);
-    const physical=from.inner?INNER:OUTER;
-    const shell=from.inner?innerFrame:outerFrame;
+    const startClass=device.className;
+    const folding=from.inner!==to.inner;
+    const startScreen=from.inner?INNER:OUTER,endScreen=to.inner?INNER:OUTER;
+    const startShell=from.inner?innerFrame:outerFrame,endShell=to.inner?innerFrame:outerFrame;
     const startAngle=angle(from),endAngle=angle(to);
-    state.mode=Object.keys(modes).find(key=>modes[key]===to);layout();
-    const width=parseFloat(device.style.width),height=parseFloat(device.style.height);
-    function render(t,raw) {
-      const degree=startAngle+(endAngle-startAngle)*t;
-      const radians=degree*Math.PI/180;
-      const cosine=Math.abs(Math.cos(radians)),sine=Math.abs(Math.sin(radians));
-      // The upright viewport covers the entire rotating aperture, including its diagonal corners.
-      const viewportWidth=physical.width*cosine+physical.height*sine;
-      const viewportHeight=physical.width*sine+physical.height*cosine;
-      const stage=$('stage').getBoundingClientRect();
-      const scale=Math.min(
-        (fit(from)+(fit(to)-fit(from))*t)*(1-.08*Math.sin(raw*Math.PI)),
-        stage.width/(shell.width*cosine+shell.height*sine),
-        stage.height/(shell.width*sine+shell.height*cosine)
-      );
-      const wrap=$('device-wrap');
-      // Both physical screens are centered inside their original frame artwork.
-      // Center independently of scale so changing the fitted size does not move the device.
-      device.style.left=`${(parseFloat(wrap.style.width)-width*scale)/(2*scale)}px`;
-      device.style.top=`${(parseFloat(wrap.style.height)-height*scale)/(2*scale)}px`;
-      device.style.zoom=String(scale);
-      frame.style.cssText=`width:${shell.width}px;height:${shell.height}px;left:${(width-shell.width)/2}px;top:${(height-shell.height)/2}px;transform:rotate(${degree}deg)`;
-      screen.style.cssText=`left:${(width-physical.width)/2}px;top:${(height-physical.height)/2}px;width:${physical.width}px;height:${physical.height}px;border-radius:${from.inner?'40px':'4px 55px 55px 4px'};transform:rotate(${degree}deg);transform-origin:center`;
-      for(const element of content) {
-        element.style.cssText=`position:absolute;left:${(physical.width-viewportWidth)/2}px;top:${(physical.height-viewportHeight)/2}px;width:${viewportWidth}px;height:${viewportHeight}px;transform:rotate(${-degree}deg);transform-origin:center`;
-      }
-    }
+    // Only duplicate the frame artwork. Never detach, clone or hide the iframe.
+    const previousFrame=folding?frame.cloneNode(false):null;
+    if(previousFrame){previousFrame.removeAttribute('id');previousFrame.setAttribute('aria-hidden','true');device.appendChild(previousFrame);}
+    const preview=$('preview');
+    preview.style.pointerEvents='none';
     try {
-      // Prepare the starting pose before the next paint: no target-layout flash.
+      state.mode=Object.keys(modes).find(key=>modes[key]===to);layout();
+      const endClass=device.className;
+      function render(t,raw) {
+        const degree=lerp(startAngle,endAngle,t),radians=degree*Math.PI/180;
+        const cosine=Math.abs(Math.cos(radians)),sine=Math.abs(Math.sin(radians));
+        const shellW=lerp(startShell.width,endShell.width,t),shellH=lerp(startShell.height,endShell.height,t);
+        const physicalW=lerp(startScreen.width,endScreen.width,t),physicalH=lerp(startScreen.height,endScreen.height,t);
+        const width=shellW*cosine+shellH*sine,height=shellW*sine+shellH*cosine;
+        const viewportW=physicalW*cosine+physicalH*sine,viewportH=physicalW*sine+physicalH*cosine;
+        const stage=$('stage').getBoundingClientRect();
+        const depth=Math.sin(raw*Math.PI);
+        const scale=Math.max(.05,Math.min(1,stage.width/width,stage.height/height))*(1-(folding?.12:.08)*depth);
+        wrap.style.cssText=`width:${width*scale}px;height:${height*scale}px`;
+        const tilt=folding?(to.inner?-1:1)*54*depth:0;
+        device.style.cssText=`width:${width}px;height:${height}px;zoom:${scale};transform-origin:center;transform:perspective(1400px) rotateY(${tilt}deg)`;
+        device.className=t<.5?startClass:endClass;
+        const artwork=`width:${shellW}px;height:${shellH}px;left:${(width-shellW)/2}px;top:${(height-shellH)/2}px;transform:rotate(${degree}deg)`;
+        frame.style.cssText=artwork+`;opacity:${folding?t:1}`;
+        if(previousFrame)previousFrame.style.cssText=artwork+`;opacity:${1-t}`;
+        const startCorners=from.inner?[40,40,40,40]:[4,55,55,4];
+        const endCorners=to.inner?[40,40,40,40]:[4,55,55,4];
+        const radius=startCorners.map((value,index)=>`${lerp(value,endCorners[index],t)}px`).join(' ');
+        screen.style.cssText=`left:${(width-physicalW)/2}px;top:${(height-physicalH)/2}px;width:${physicalW}px;height:${physicalH}px;border-radius:${radius};transform:rotate(${degree}deg);transform-origin:center`;
+        for(const element of content){
+          element.style.cssText=`position:absolute;left:${(physicalW-viewportW)/2}px;top:${(physicalH-viewportH)/2}px;width:${viewportW}px;height:${viewportH}px;transform:rotate(${-degree}deg);transform-origin:center`;
+        }
+        preview.style.pointerEvents='none';
+      }
       render(0,0);
-      await tween(520,render);
+      await tween(folding?900:520,render);
     } finally {
+      previousFrame?.remove();
       content.forEach((element,index)=>element.style.cssText=originalStyles[index]);
       layout();
     }
@@ -150,26 +140,18 @@ export function createMotion({state,modes,layout,save}) {
     if(busy||!modes[next]||next===state.mode)return;
     if(reduced()){state.mode=next;layout();save();return;}
     const from=modes[state.mode],to=modes[next];
-    // Mark busy before taking a snapshot so rapid clicks cannot start overlapping transitions.
-    busy=true;$('stage').setAttribute('aria-busy','true');
-    document.querySelectorAll('[data-mode],#theme,#refresh,#safe-toggle,#proxy-toggle,#clear,.submit').forEach(button=>button.disabled=true);
+    // Block overlapping transitions while keeping the real page mounted.
+    busyState(true);
     try {
-      if(from.inner===to.inner) {
-        busyState(true,false);
-        await rotate(from,to);
-      } else {
-        const start=await snapshot();
-        await getRenderer();
-        layer.hidden=false;layer.style.opacity='1';busyState(true);
-        await fold(from,to,start);
-      }
+      if(from.inner!==to.inner){
+        try{await hingeFold(from,to);}
+        catch(error){console.warn('Hinged renderer unavailable; using live viewport animation.',error);state.mode=Object.keys(modes).find(key=>modes[key]===from);layout();await transition(from,to);}
+      }else await transition(from,to);
     } catch(error) {
-      console.warn('Device optical transition unavailable; using a live view transition.',error);
+      console.warn('Device transition unavailable; showing the live target viewport.',error);
       state.mode=next;layout();
-      $('device-wrap').classList.remove('motion-covered');
       feedback($('device-wrap'),'reveal');
     } finally {
-      layer.hidden=true;if(renderer)renderer.rotor.hidden=true;
       state.mode=next;busyState(false);layout();save();
     }
   }
@@ -178,7 +160,6 @@ export function createMotion({state,modes,layout,save}) {
     const keyframes=type==='spin'?[{transform:'rotate(0)'},{transform:'rotate(360deg)'}]:type==='theme'?[{transform:'rotate(-70deg) scale(.65)',opacity:.4},{transform:'rotate(0) scale(1)',opacity:1}]:[{opacity:0},{opacity:1}];
     element.animate(keyframes,{duration:type==='spin'?520:250,easing:'ease-in-out'});
   }
-  // Warm the renderer while idle; failures leave the static, usable device intact.
-  setTimeout(()=>{if(!reduced())getRenderer().catch(()=>{})},250);
+  setTimeout(()=>{if(!reduced())getRenderer().catch(()=>{});},250);
   return {change,feedback,get busy(){return busy}};
 }

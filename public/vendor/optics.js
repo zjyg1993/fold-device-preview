@@ -30,5 +30,42 @@ out vec3 vOpticalPosition;`).replace("vSurfaceUv = uv;","vSurfaceUv = vec2(uv.x,
         fixedAnchor.y = uRimProfile.y + (anchor.y - uRimProfile.y) * uRimProfile.z;
       // The hidden inner rim has the same closed-cover margin at both ends;
       // retaining its full-height moving end would leave a thin exposed fin.
-      vOpticalPosition = mix(fixedAnchor, rotateLeaf(fixedAnchor), uv.x);`),Oe=new $t({glslVersion:Rt,vertexShader:Le,fragmentShader:Y,uniforms:{...se,uRimProfile:N,uFrameHeight:{value:ee.height},uFrame:{value:ae[0]},uFrameUvRange:{value:new tt(1e3/2048,0)}},side:Ra,transparent:!0,depthWrite:!0,toneMapped:!1}),we=[[ee.y,W.y],[W.y+W.height,ee.y+ee.height]].map(([y,q])=>{const z=new Pa(1,q-y);z.translate(0,(y+q)/2,ee.z);const V=new Pt(z,Oe);return V.frustumCulled=!1,V.renderOrder=2,I.add(V),V});await k.compileAsync(I,B),ae.forEach(y=>k.initTexture(y));let r=!1,m=180;const D=[null,null];function E(y){if(r)return;m=y,se.uFoldAngle.value=Math.PI*(1-y/180);const q=(o.height-i.height)/(s.height-i.height);N.value.z=ct.lerp(q,1,ct.smoothstep(y,0,30)),pe.visible=!!D[0]&&y>.01,ie.visible=!!D[1]&&y<179.99,ne.visible=y>.01,he.visible=y>.01,we.forEach(z=>z.visible=y>.01),k.render(I,B)}return{setSnapshot(y,q){var be;const z=y==="inner"?0:1;(be=D[z])==null||be.texture.dispose();const V=Va(q,z===1);D[z]=V;const ve=X[z].uniforms;ve.uUiTexture.value=V.texture,ve.uUiResolution.value.copy(V.resolution),ve.uTextureRect.value.copy(V.rect),ve.uMaxMipLevel.value=V.maxMip,k.initTexture(V.texture)},render:E,getSnapshot:()=>({opening:m,snapshots:D.map(y=>y?y.resolution.toArray():null),pixelRatio:k.getPixelRatio()}),dispose(){r=!0,D.forEach(y=>y==null?void 0:y.texture.dispose()),ae.forEach(y=>y.dispose()),I.traverse(y=>{var q,z;(q=y.geometry)==null||q.dispose(),(z=y.material)==null||z.dispose()}),k.dispose(),k.domElement.remove()}}}
+      vOpticalPosition = mix(fixedAnchor, rotateLeaf(fixedAnchor), uv.x);`),Oe=new $t({glslVersion:Rt,vertexShader:Le,fragmentShader:Y,uniforms:{...se,uRimProfile:N,uFrameHeight:{value:ee.height},uFrame:{value:ae[0]},uFrameUvRange:{value:new tt(1e3/2048,0)}},side:Ra,transparent:!0,depthWrite:!0,toneMapped:!1}),we=[[ee.y,W.y],[W.y+W.height,ee.y+ee.height]].map(([y,q])=>{const z=new Pa(1,q-y);z.translate(0,(y+q)/2,ee.z);const V=new Pt(z,Oe);return V.frustumCulled=!1,V.renderOrder=2,I.add(V),V});await k.compileAsync(I,B),ae.forEach(y=>k.initTexture(y));let r=!1,m=180;const D=[null,null];function E(y){if(r)return;m=y,se.uFoldAngle.value=Math.PI*(1-y/180);const q=(o.height-i.height)/(s.height-i.height);N.value.z=ct.lerp(q,1,ct.smoothstep(y,0,30)),pe.visible=!!D[0]&&y>.01,ie.visible=!!D[1]&&y<179.99,ne.visible=y>.01,he.visible=y>.01,we.forEach(z=>z.visible=y>.01),k.render(I,B)}return{setSnapshot(y,q){var be;const z=y==="inner"?0:1;(be=D[z])==null||be.texture.dispose();const V=Va(q,z===1);D[z]=V;const ve=X[z].uniforms;ve.uUiTexture.value=V.texture,ve.uUiResolution.value.copy(V.resolution),ve.uTextureRect.value.copy(V.rect),ve.uMaxMipLevel.value=V.maxMip,k.initTexture(V.texture)},render:E,
+// Project the same shader surface into CSS coordinates for a live iframe.
+// The frame keeps its original hinged WebGL deformation; no page texture is needed.
+getLiveSurface(){
+  const kind=m<90?'outer':'inner',surface=kind==='inner'?W:Q;
+  const radians=Math.PI*(1-m/180),cosine=Math.cos(radians),sine=Math.sin(radians),half=.35;
+  const rotate=(x,y,z)=>[cosine*x+sine*(z-Wt),y,Wt-sine*x+cosine*(z-Wt)];
+  function point(x,y){
+    const z=surface.z;let value;
+    if(kind==='outer'||x<=-half)value=rotate(x,y,z);
+    else if(x>=half)value=[x,y,z];
+    else{
+      const t=(x+half)/(2*half),t2=t*t,t3=t2*t;
+      const h00=2*t3-3*t2+1,h10=t3-2*t2+t,h01=-2*t3+3*t2,h11=t3-t2;
+      const left=rotate(-half,y,z),right=[half,y,z];
+      const tangentLeft=[2*half*cosine,0,-2*half*sine],tangentRight=[2*half,0,0];
+      value=left.map((v,index)=>h00*v+h10*tangentLeft[index]+h01*right[index]+h11*tangentRight[index]);
+    }
+    const projected=new qt(...value).project(B);
+    return [(projected.x+1)*M/2-Ht,(1-projected.y)*R/2-Ht];
+  }
+  const xs=Array.from({length:25},(_,index)=>surface.x+surface.width*index/24);
+  if(kind==='inner')for(let index=0;index<=8;index++)xs.push(-half+2*half*index/8);
+  xs.sort((a,b)=>a-b);
+  const radiusLeft=kind==='inner'?40/v:55/v/ce,radiusRight=kind==='inner'?40/v:4/v/ce;
+  const topY=surface.y+surface.height,rightX=surface.x+surface.width;
+  const points=[];
+  function arc(cx,cy,radius,start,end){for(let index=0;index<=8;index++){const a=start+(end-start)*index/8;points.push(point(cx+radius*Math.cos(a),cy+radius*Math.sin(a)));}}
+  arc(surface.x+radiusLeft,topY-radiusLeft,radiusLeft,Math.PI,Math.PI/2);
+  for(const x of xs)if(x>surface.x+radiusLeft&&x<rightX-radiusRight)points.push(point(x,topY));
+  arc(rightX-radiusRight,topY-radiusRight,radiusRight,Math.PI/2,0);
+  arc(rightX-radiusRight,surface.y+radiusRight,radiusRight,0,-Math.PI/2);
+  for(const x of xs.slice().reverse())if(x>surface.x+radiusLeft&&x<rightX-radiusRight)points.push(point(x,surface.y));
+  arc(surface.x+radiusLeft,surface.y+radiusLeft,radiusLeft,-Math.PI/2,-Math.PI);
+  const left=Math.min(...points.map(p=>p[0])),top=Math.min(...points.map(p=>p[1]));
+  const width=Math.max(1,Math.max(...points.map(p=>p[0]))-left),height=Math.max(1,Math.max(...points.map(p=>p[1]))-top);
+  return {kind,left,top,width,height,clipPath:'polygon('+points.map(p=>(p[0]-left)+'px '+(p[1]-top)+'px').join(',')+')'};
+},getSnapshot:()=>({opening:m,snapshots:D.map(y=>y?y.resolution.toArray():null),pixelRatio:k.getPixelRatio()}),dispose(){r=!0,D.forEach(y=>y==null?void 0:y.texture.dispose()),ae.forEach(y=>y.dispose()),I.traverse(y=>{var q,z;(q=y.geometry)==null||q.dispose(),(z=y.material)==null||z.dispose()}),k.dispose(),k.domElement.remove()}}}
 export { Ba as createOptics };

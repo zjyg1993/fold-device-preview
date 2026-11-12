@@ -12,7 +12,7 @@
 | `public/index.html`、`public/style.css` | 模拟器结构、工具栏与外观 |
 | `public/app.js` | 输入校验、状态、布局尺寸、偏好保存与预览消息处理 |
 | `public/preview-origin.js` | 代理来源、预期消息来源与 iframe 沙箱配置 |
-| `public/motion.js` | 真实网页旋转重排、快照请求、立体折叠与降级 |
+| `public/motion.js` | 真实网页旋转重排、内外屏连续视口过渡与状态保留 |
 | `public/proxy-runtime.js` | 注入目标 HTML 的函数：动态请求、导航、路由修复和快照响应 |
 | `public/vendor/`、`public/assets/` | 本地渲染/快照模块与边框，出处见 `vendor/NOTICE.md` |
 | `public/demo.html` | 随设备视口变化的同源示例 |
@@ -50,7 +50,9 @@
 
 同源示例与直接加载页面保留 `allow-same-origin`。外壳检查 message 的来源窗口及预期 origin：本机代理为回环 origin，不透明沙箱为字符串 `null`。注入脚本检查父窗口及外壳 origin。
 
-`folden:proxy-ready`、`folden:proxy-error` 报告加载/导航；`folden:capture`、`folden:captured` 请求并返回页面内生成的 ImageBitmap。跨来源快照由预览内脚本完成，外壳不直接读取远程 DOM。快照等待上限 700ms，失败则使用占位图；横竖屏旋转调整真实 iframe，不依赖快照。
+`folden:proxy-ready`、`folden:proxy-error` 报告加载/导航。设备动效直接调整同一个 iframe 的视口：横竖屏旋转为 520ms，内外屏铰链折叠为 900ms。过渡不读取目标 DOM、不等待截图、不替换或隐藏 iframe，也不修改 iframe 的 src，因此跨来源或未完成加载的页面同样可持续显示。内外屏切换时 WebGL 只渲染铰链和边框，`getLiveSurface()` 将同一着色器曲面投影为带圆角的 CSS 裁切轮廓，真实 iframe 在轮廓内持续显示。WebGL 不可用时才回退为实时视口动画，边框副本在过渡后移除。目标站点可能自行响应 resize、媒体查询和滚动范围变化。
+
+`folden:capture`、`folden:captured` 的旧快照响应与 vendor 模块暂予保留以兼容已有调用，但当前设备切换不再使用截图贴图。光学 WebGL 渲染器只用于原始铰链与边框，真实页面留在 DOM 中。
 
 不同目标站点共享代理来源，原站跨域关系不能保留。不透明沙箱还可能限制站点存储；这些隔离措施不等于完整浏览器兼容层。
 
@@ -73,7 +75,7 @@ Node 不自动读取 `.env`；Workers 配置和绑定由 Wrangler/平台管理�
 - 界面、尺寸与偏好：`app.js`、`style.css`、`index.html`。
 - 来源隔离：同步核对 `preview-origin.js`、两个入口的 shell origin 及消息验证。
 - 代理：公共重写在 `lib/preview-proxy.mjs`；网络传输分别在 Node/Worker 入口，需同时核对；动态适配在 `proxy-runtime.js`。
-- 动效：`motion.js`，保留 iframe 实例、旋转中的真实视口重排、快照超时与 WebGL 降级。
+- 动效：`motion.js`，保留 iframe 实例和可见性、旋转与展开过程中的真实视口重排、动画异常时的清理。
 
 `proxy-runtime.js` 是可独立注入的函数文本。Node 按请求读取；Worker 通过 Wrangler `Text` 规则导入原始文本，避免打包器引入外部辅助变量。不要随意改成依赖模块导入的普通脚本。
 
