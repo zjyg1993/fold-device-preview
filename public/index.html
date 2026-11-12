@@ -15,6 +15,13 @@
       <div id="screen" class="screen">
         <div id="empty" class="empty"><div class="empty-icon" data-icon="globe"></div><h1>在这里，看见你的网页</h1><p>在下方输入网址，开始设备预览</p><span>切换内外屏，探索每一种布局</span></div>
         <iframe id="preview" title="设备内的网页预览" hidden referrerpolicy="strict-origin-when-cross-origin" allow="fullscreen" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals allow-downloads"></iframe>
+        <div id="device-status" class="device-status">
+          <div class="system">
+            <time id="device-time" class="time" aria-label="设备时间"></time>
+            <svg class="status-ring" viewBox="0 0 28 28" aria-hidden="true"><circle cx="14" cy="14" r="12.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-dasharray="0.01 3.6"/><circle cx="14" cy="14" r="12.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-dasharray="52 100" transform="rotate(150 14 14)"/></svg>
+            <svg class="status-wifi" viewBox="0 0 256 256" role="img" aria-label="Wi-Fi 信号"><path fill="currentColor" stroke="none" d="M144 204a16 16 0 1 1-16-16a16 16 0 0 1 16 16m95.61-120.09a176 176 0 0 0-223.22 0a12 12 0 1 0 15.23 18.55a152 152 0 0 1 192.76 0a12 12 0 1 0 15.23-18.55m-32.16 35.73a128 128 0 0 0-158.9 0a12 12 0 0 0 14.9 18.81a104 104 0 0 1 129.1 0a12 12 0 0 0 14.9-18.81m-32.38 35.66a80.05 80.05 0 0 0-94.14 0a12 12 0 0 0 14.14 19.4a56 56 0 0 1 65.86 0a12 12 0 1 0 14.14-19.4"/></svg>
+          </div>
+        </div>
         <div id="reserved" class="reserved" hidden aria-hidden="true"><div class="fold"><span>折叠区域</span></div><div class="camera"><span id="camera-label">内屏摄像头</span></div></div>
       </div>
     </div></div>
@@ -22,7 +29,7 @@
   </main>
   <footer class="footer">
     <div class="viewport-info"><span id="mode-name">横屏内屏</span><span class="dot">·</span><span id="dimensions">880 × 624</span><span class="dot">·</span><span id="scale">100%</span></div>
-    <form id="url-form" class="url-form" novalidate><span class="input-icon" data-icon="globe"></span><input id="url" type="text" value="h5.maycur.com" inputmode="url" autocomplete="url" spellcheck="false" aria-label="预览网址" placeholder="输入网址，如 localhost:3000" aria-describedby="hint"><button type="button" id="clear" class="clear" aria-label="清空网址" title="清空网址">×</button><button type="submit" class="submit"><span>打开</span><span data-icon="arrow"></span></button></form>
+    <form id="url-form" class="url-form" novalidate><span class="input-icon" data-icon="globe"></span><input id="url" type="text" value="https://duo.noctrue.com/duotopic/explore" inputmode="url" autocomplete="url" spellcheck="false" aria-label="预览网址" placeholder="输入网址，如 localhost:3000" aria-describedby="hint"><button type="button" id="clear" class="clear" aria-label="清空网址" title="清空网址">×</button><button type="submit" class="submit"><span>打开</span><span data-icon="arrow"></span></button></form>
     <div id="hint" class="hint" role="status" aria-live="polite">支持网址和本地项目地址</div>
     <nav class="toolbar" aria-label="模拟器控制栏">
       <button id="theme" title="切换为深色模式"><span data-icon="sun"></span><span id="theme-label">浅色</span></button>

@@ -48,7 +48,7 @@ export function createMotion({state,modes,layout,save}) {
     // its projected aperture, including when cross-origin DOM access is denied.
     const {rotor,optics}=await getRenderer();
     const device=$('device'),wrap=$('device-wrap'),screen=$('screen'),frame=$('frame');
-    const content=[$('preview'),$('empty'),$('reserved')],styles=content.map(e=>e.style.cssText);
+    const content=[$('preview'),$('empty'),$('device-status'),$('reserved')],styles=content.map(e=>e.style.cssText);
     const shade=document.createElement('div');shade.setAttribute('aria-hidden','true');screen.appendChild(shade);
     const first=from.inner?180:0,last=to.inner?180:0;
     try{
@@ -87,7 +87,7 @@ export function createMotion({state,modes,layout,save}) {
   }
   async function transition(from,to) {
     const device=$('device'),screen=$('screen'),frame=$('frame'),wrap=$('device-wrap');
-    const content=[$('preview'),$('empty'),$('reserved')];
+    const content=[$('preview'),$('empty'),$('device-status'),$('reserved')];
     const originalStyles=content.map(element=>element.style.cssText);
     const startClass=device.className;
     const folding=from.inner!==to.inner;

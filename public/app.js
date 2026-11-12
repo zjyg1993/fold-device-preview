@@ -55,6 +55,11 @@ function theme() {
   $('theme').querySelector('[data-icon]').innerHTML=icon(state.theme==='dark'?'moon':'sun');
   $('theme').title=state.theme==='dark'?'切换为浅色模式':'切换为深色模式';
 }
+function updateClock() {
+  const now = new Date();
+  $('device-time').textContent = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  $('device-time').dateTime = now.toISOString();
+}
 function normalize(raw) {
   let value=raw.trim();
   if(!value) return '';
@@ -96,7 +101,9 @@ $('safe-toggle').addEventListener('click',()=>{state.safe=!state.safe;layout();i
 $('proxy-toggle').addEventListener('click',()=>{state.proxy=!state.proxy;$('proxy-toggle').setAttribute('aria-pressed',String(state.proxy));hint(state.proxy?'外部网址通过本地代理加载':'直接加载：适合已允许嵌入的本地项目');if(state.url)load(state.url);});
 $('open-external').addEventListener('click',()=>{if(state.url) window.open(state.url,'_blank','noopener,noreferrer');});
 new ResizeObserver(layout).observe($('stage'));
-theme();layout();
+theme();layout();updateClock();
+setInterval(updateClock,1000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)updateClock();});
 
 window.addEventListener('message',event=>{
   if(event.source!==$('preview').contentWindow)return;

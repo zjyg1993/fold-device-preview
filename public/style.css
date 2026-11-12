@@ -9,3 +9,21 @@
 .inner .camera span{position:static;top:auto;left:auto;transform:translateY(18px)}
 .inner .fold span{writing-mode:horizontal-tb;transform:rotate(90deg);font-weight:600;line-height:1.5}
 .inner.portrait .fold span{transform:none}
+/* Status geometry and Wi-Fi path from duo.noctrue.com's .system overlay.
+   Keep this layer independent of the optional reserved-area guides. */
+.device-status{position:absolute;inset:0;z-index:4;pointer-events:none;color:#000}
+body.dark .device-status{color:#fff}
+.system{position:absolute;top:0;right:44px;width:0;height:0}
+.system>*{position:absolute;left:0;transform:translateX(-50%)}
+.system .time{top:25px;font:700 14px/18px -apple-system,"SF Pro Text",system-ui,sans-serif;white-space:nowrap}
+.system .status-ring{top:52px;width:34px;height:34px}
+.system .status-wifi{top:61px;width:16px;height:16px}
+.inner.portrait .system .time{top:39px;left:-35px;transform:translateX(-100%)}
+.inner.portrait .system .status-ring{top:27px;width:42px;height:42px}
+.inner.portrait .system .status-wifi{top:38px;width:20px;height:20px}
+.outer.portrait .system .time{top:75px}
+.outer.portrait .system .status-ring{top:102px}
+.outer.portrait .system .status-wifi{top:111px}
+.outer.landscape .system .time{top:14px}
+.outer.landscape .system .status-ring{top:38px}
+.outer.landscape .system .status-wifi{top:47px}
