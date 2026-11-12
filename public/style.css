@@ -27,3 +27,8 @@ body.dark .device-status{color:#fff}
 .outer.landscape .system .time{top:14px}
 .outer.landscape .system .status-ring{top:38px}
 .outer.landscape .system .status-wifi{top:47px}
+/* Physical screen coordinates: the frame stays sharp while the live page,
+   clock and signal are blurred together by the folding glass. */
+.fold-optical-effect{position:absolute;inset:0;z-index:5;pointer-events:none}
+.fold-optical-band{position:absolute;pointer-events:none}
+.fold-optical-shade{position:absolute;inset:0;pointer-events:none}

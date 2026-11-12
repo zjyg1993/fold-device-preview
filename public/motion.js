@@ -6,6 +6,33 @@ const outerFrame = {width:487.218045,height:673.735793,screenLeft:27.609023,scre
 const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 const ease = t => (1-Math.cos(t*Math.PI))/2;
 const angle = mode => mode.inner ? (mode.portrait?90:0) : (mode.portrait?0:90);
+function createFoldEffect(screen) {
+  const effect=document.createElement('div');
+  effect.className='fold-optical-effect';effect.setAttribute('aria-hidden','true');
+  const bands=Array.from({length:24},()=>{
+    const band=document.createElement('div');band.className='fold-optical-band';effect.appendChild(band);return band;
+  });
+  const shade=document.createElement('div');shade.className='fold-optical-shade';effect.appendChild(shade);
+  screen.appendChild(effect);
+  return {
+    render(surface){
+      const stops=[];
+      surface.opticalBands.forEach((optics,index)=>{
+        const band=bands[index];
+        // Blur a padded area, then mask its centre. Filtering a narrow strip
+        // directly clips the blur kernel and leaves bright vertical seams.
+        const padding=Math.ceil(optics.blur*3)+2,start=padding,end=padding+optics.width;
+        const mask=`linear-gradient(90deg,transparent ${start-.5}px,#000 ${start+.5}px,#000 ${end-.5}px,transparent ${end+.5}px)`;
+        band.style.cssText=`left:${optics.left-padding}px;top:0;width:${optics.width+padding*2}px;height:100%;backdrop-filter:blur(${optics.blur}px);-webkit-backdrop-filter:blur(${optics.blur}px);mask-image:${mask};-webkit-mask-image:${mask}`;
+        band.hidden=optics.blur<.01;
+        stops.push({x:optics.left,a:optics.darkLeft},{x:optics.left+optics.width,a:optics.darkRight});
+      });
+      stops.sort((a,b)=>a.x-b.x);
+      shade.style.background=`linear-gradient(90deg,${stops.map(stop=>`rgba(0,0,0,${stop.a}) ${stop.x}px`).join(',')})`;
+    },
+    remove(){effect.remove();},
+  };
+}
 function tween(duration, update) {
   return new Promise((resolve,reject)=>{
     let previous,elapsed=0;
@@ -49,7 +76,7 @@ export function createMotion({state,modes,layout,save}) {
     const {rotor,optics}=await getRenderer();
     const device=$('device'),wrap=$('device-wrap'),screen=$('screen'),frame=$('frame');
     const content=[$('preview'),$('empty'),$('device-status'),$('reserved')],styles=content.map(e=>e.style.cssText);
-    const shade=document.createElement('div');shade.setAttribute('aria-hidden','true');screen.appendChild(shade);
+    const effect=createFoldEffect(screen);
     const first=from.inner?180:0,last=to.inner?180:0;
     try{
       state.mode=Object.keys(modes).find(key=>modes[key]===to);layout();
@@ -70,12 +97,12 @@ export function createMotion({state,modes,layout,save}) {
         const w=surface.width*cosine+surface.height*sine,h=surface.width*sine+surface.height*cosine;
         for(const element of content)element.style.cssText=`position:absolute;left:${(surface.width-w)/2}px;top:${(surface.height-h)/2}px;width:${w}px;height:${h}px;transform:rotate(${-degree}deg);transform-origin:center`;
         $('preview').style.pointerEvents='none';
-        shade.style.cssText=`position:absolute;inset:0;z-index:2;pointer-events:none;background:linear-gradient(90deg,rgba(0,0,0,${.28*Math.sin(opening*Math.PI/180)}),transparent 65%)`;
+        effect.render(surface);
       }
       render(0,0);
       await tween(900,render);
     }finally{
-      shade.remove();rotor.hidden=true;layer.hidden=true;
+      effect.remove();rotor.hidden=true;layer.hidden=true;
       content.forEach((element,index)=>element.style.cssText=styles[index]);layout();
     }
   }

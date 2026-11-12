@@ -66,6 +66,22 @@ getLiveSurface(){
   arc(surface.x+radiusLeft,surface.y+radiusLeft,radiusLeft,-Math.PI/2,-Math.PI);
   const left=Math.min(...points.map(p=>p[0])),top=Math.min(...points.map(p=>p[1]));
   const width=Math.max(1,Math.max(...points.map(p=>p[0]))-left),height=Math.max(1,Math.max(...points.map(p=>p[1]))-top);
-  return {kind,left,top,width,height,clipPath:'polygon('+points.map(p=>(p[0]-left)+'px '+(p[1]-top)+'px').join(',')+')'};
+  // Project optical strips through the same surface as the frame. These apply
+  // the original shader's spatial blur to the live page without capturing it.
+  const progress=(kind==='outer'?m:180-m)/90;
+  const darkenAt=u=>{
+    const edge=Math.max(0,Math.min(1,kind==='outer'?1-u:1-2*u));
+    return Math.min(1,2*progress*Math.pow(Math.max(0,(edge-.2)/.8),1.35));
+  };
+  const opticalBands=Array.from({length:24},(_,index)=>{
+    const u0=index/24,u1=(index+1)/24,u=(u0+u1)/2;
+    const edge=Math.max(0,Math.min(1,kind==='outer'?1-u:1-2*u));
+    const radius=72*progress*Math.pow(edge,1.35);
+    const x0=point(surface.x+surface.width*u0,topY)[0],x1=point(surface.x+surface.width*u1,topY)[0];
+    const dark0=darkenAt(u0),dark1=darkenAt(u1),forward=x0<=x1;
+    return {left:Math.min(x0,x1)-left,width:Math.max(.01,Math.abs(x1-x0)),
+      blur:radius*.5,darkLeft:forward?dark0:dark1,darkRight:forward?dark1:dark0};
+  });
+  return {kind,left,top,width,height,opticalBands,clipPath:'polygon('+points.map(p=>(p[0]-left)+'px '+(p[1]-top)+'px').join(',')+')'};
 },getSnapshot:()=>({opening:m,snapshots:D.map(y=>y?y.resolution.toArray():null),pixelRatio:k.getPixelRatio()}),dispose(){r=!0,D.forEach(y=>y==null?void 0:y.texture.dispose()),ae.forEach(y=>y.dispose()),I.traverse(y=>{var q,z;(q=y.geometry)==null||q.dispose(),(z=y.material)==null||z.dispose()}),k.dispose(),k.domElement.remove()}}}
 export { Ba as createOptics };
