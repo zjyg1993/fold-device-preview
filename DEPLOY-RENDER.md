@@ -30,7 +30,7 @@ Node 24 由仓库 `.node-version` 指定。`NODE_ENV=production` 是部署标记
 ## 发布后验证
 
 - 访问 `/healthz`，应返回 `{"status":"ok"}`。
-- 首页与 `/simulator` 可访问；网址预填 `h5.maycur.com` 但不自动加载。输入 `https://example.com` 并提交，保持“代理”开启，检查网页是否显示。
+- 首页与 `/simulator` 可访问；网址预填 `https://duo.noctrue.com/duochat/chats` 但不自动加载。输入 `https://example.com` 并提交，保持“代理”开启，检查网页是否显示。
 - 输入当前站点的 `/demo.html` 完整网址，检查同源示例。
 - 切换内外屏、横竖屏，并确认预览请求使用当前 `onrender.com` 域名，不请求访问者的 `127.0.0.1`。
 
