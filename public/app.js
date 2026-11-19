@@ -76,17 +76,21 @@ function normalize(raw) {
 function clearPreview() {
   clearTimeout(state.timer); state.url=''; $('url').value=''; $('clear').hidden=true; $('preview').hidden=true; $('preview').removeAttribute('src'); $('empty').hidden=false; $('open-external').disabled=true; $('embed-note').hidden=true; hint('支持网址和本地项目地址');
 }
-function previewURL(url) {
-  if(!state.proxy || new URL(url).origin===location.origin) return url;
-  const target=new URL(url);
+function previewURL(target) {
+  if(!state.proxy || target.origin===location.origin) return target.href;
   const token=btoa(target.origin).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
   return `${proxyOrigin}/__proxy/${token}${target.pathname}${target.search}${target.hash}`;
 }
 function load(url) {
-  clearTimeout(state.timer);state.url=url; $('url').value=url; $('clear').hidden=false; $('empty').hidden=true; $('preview').hidden=false; $('open-external').disabled=false; $('embed-note').hidden=false;
-  configurePreview($('preview'), state.proxy && new URL(url).origin !== location.origin);
+  const target = new URL(url);
+  if (!target.searchParams.has('deviceModel')) {
+    // Append without re-encoding the target's existing query string.
+    target.search += `${target.search ? '&' : '?'}deviceModel=iPhone%20Duo`;
+  }
+  clearTimeout(state.timer);state.url=target.href; $('url').value=target.href; $('clear').hidden=false; $('empty').hidden=true; $('preview').hidden=false; $('open-external').disabled=false; $('embed-note').hidden=false;
+  configurePreview($('preview'), state.proxy && target.origin !== location.origin);
   $('embed-note').textContent=state.proxy?'外部网址使用本地代理预览；登录与验证页面可用新窗口打开。':'当前直接嵌入网页；可按需手动开启代理。';
-  hint(state.proxy?'正在通过本地代理加载…':'正在直接加载网页…'); $('preview').src=previewURL(url);
+  hint(state.proxy?'正在通过本地代理加载…':'正在直接加载网页…'); $('preview').src=previewURL(target);
   state.timer=setTimeout(()=>hint('加载时间较长；若网页空白，可尝试新窗口打开'),12000);
 }
 $('url-form').addEventListener('submit', e=>{e.preventDefault();if(motion.busy)return;try { const url=normalize($('url').value); if(url) load(url); else {clearPreview();$('url').focus();} } catch(err) {hint(err.message || '请输入有效网址',true);$('url').focus();} });

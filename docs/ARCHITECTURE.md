@@ -32,7 +32,7 @@
 
 例如 `https://example.com/path?q=1` 对应 `/__proxy/aHR0cHM6Ly9leGFtcGxlLmNvbQ/path?q=1`。片段保留在浏览器 URL，不发送给服务端。
 
-1. `app.js` 校验输入，只接受不含用户名/密码的 HTTP/HTTPS URL。关闭代理或预览同源示例时，iframe 直接加载原网址。
+1. `app.js` 校验输入，只接受不含用户名/密码的 HTTP/HTTPS URL，并在加载时为缺少 `deviceModel` 的目标地址追加 `deviceModel=iPhone%20Duo`。关闭代理或预览同源示例时，iframe 直接加载目标网址。
 2. 代理请求发送到 `preview-origin.js` 选定的来源。服务端解码目标 origin，拒绝非法地址及自身代理循环。
 3. Node/Worker 使用 fetch 访问上游，手动处理重定向。转发选定的内容类型、范围与缓存验证等请求头；Referer 及写请求的 Origin 按目标来源设置，不携带浏览器 Cookie/Authorization。
 4. HTML/CSS 按声明编码解码并输出 UTF-8。HTML 重写资源、链接、表单和 base，移除部分安全属性及嵌入限制 meta，并注入运行时。其他类型保持流式响应。上游 Set-Cookie 和原站安全响应头不会直接安装到模拟器来源。
