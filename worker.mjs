@@ -60,7 +60,7 @@ async function proxy(request, local, rewrite) {
     if (html) {
       const shellOrigin = local.protocol === 'http:' && local.hostname === '127.0.0.1'
         ? `http://localhost:${local.port}` : local.origin;
-      body = rewrite.htmlRewrite(body, target, shellOrigin, runtime);
+      body = rewrite.htmlRewrite(body, target, shellOrigin, runtime, upstream.status);
       body = body.replace(/(<meta\b[^>]*charset\s*=\s*["']?)[\w-]+/gi, '$1utf-8');
       out.set('Content-Type', 'text/html; charset=utf-8');
     } else {

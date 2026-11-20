@@ -21,7 +21,7 @@ const modes = {
   outerPortrait: { name:'外屏竖屏', w:432, h:624, inner:false, portrait:true },
   outerLandscape: { name:'外屏横屏', w:624, h:432, inner:false, portrait:false },
 };
-const state = { mode:'innerLandscape', url:'', safe:false, theme:'light', proxy:false, timer:null };
+const state = { mode:'innerLandscape', url:'', safe:false, theme:'light', proxy:false, proxied:false, proxyReported:false, timer:null };
 const stage = $('stage');
 const preview = $('preview');
 const immersiveToggle = $('immersive-toggle');
@@ -53,10 +53,11 @@ function layout() {
   $('camera-label').textContent=m.inner?'内屏摄像头':'摄像头';
 }
 function theme() {
-  document.body.classList.toggle('dark',state.theme==='dark');
-  $('theme-label').textContent=state.theme==='dark'?'深色':'浅色';
-  $('theme').querySelector('[data-icon]').innerHTML=icon(state.theme==='dark'?'moon':'sun');
-  $('theme').title=state.theme==='dark'?'切换为浅色模式':'切换为深色模式';
+  const dark=state.theme==='dark';
+  document.documentElement.dataset.theme=state.theme;
+  $('theme-label').textContent=dark?'深色':'浅色';
+  $('theme').querySelector('[data-icon]').innerHTML=icon(dark?'moon':'sun');
+  $('theme').title=dark?'切换为浅色模式':'切换为深色模式';
 }
 function updateClock() {
   const now = new Date();
@@ -77,6 +78,8 @@ function normalize(raw) {
   return url.href;
 }
 function clearPreview() {
+  state.proxied=false;
+  state.proxyReported=false;
   clearTimeout(state.timer); state.url=''; $('url').value=''; $('clear').hidden=true; $('preview').hidden=true; $('preview').removeAttribute('src'); $('empty').hidden=false; $('embed-note').hidden=true; hint('');
 }
 function previewURL(target) {
@@ -91,9 +94,12 @@ function load(url) {
     target.search += `${target.search ? '&' : '?'}deviceModel=iPhone%20Duo`;
   }
   clearTimeout(state.timer);state.url=target.href; $('url').value=target.href; $('clear').hidden=false; $('empty').hidden=true; $('preview').hidden=false; $('embed-note').hidden=false;
-  configurePreview($('preview'), state.proxy && target.origin !== location.origin);
-  $('embed-note').textContent=state.proxy?'外部网址通过代理预览。登录与验证可直接访问原网址。':'当前直接嵌入网页；可按需手动开启代理。';
-  hint(state.proxy?'正在通过本地代理加载…':'正在直接加载网页…'); $('preview').src=previewURL(target);
+  const source=previewURL(target);
+  state.proxied=source!==target.href;
+  state.proxyReported=false;
+  configurePreview(preview, state.proxied);
+  $('embed-note').textContent=state.proxied?'外部网址通过代理预览。登录与验证可直接访问原网址。':'当前直接嵌入网页；可按需手动开启代理。';
+  hint(state.proxied?'正在通过本地代理加载…':'正在直接加载网页…'); preview.src=source;
   state.timer=setTimeout(()=>hint('加载时间较长，请检查网址和网络连接'),12000);
 }
 $('url-form').addEventListener('submit', e=>{e.preventDefault();if(motion.busy)return;try { const url=normalize($('url').value); if(url) load(url); else {clearPreview();$('url').focus();} } catch(err) {hint(err.message || '请输入有效网址',true);$('url').focus();} });
@@ -101,11 +107,15 @@ $('url').addEventListener('input',()=>{$('clear').hidden=!$('url').value;});
 $('clear').addEventListener('click',()=>{clearPreview();$('url').focus();});
 preview.addEventListener('load',()=>{
   preview.contentDocument?.addEventListener('keydown', handleShortcut);
-  if(!state.url)return;
+  if(!state.url || state.proxyReported)return;
   clearTimeout(state.timer);
-  hint(state.proxy?'代理页面已响应 · 可切换设备姿态预览':'已请求网页 · 可切换设备姿态预览');
+  hint(state.proxied?'已请求代理预览 · 结果以预览区为准':'已请求网页 · 可切换设备姿态预览');
 });
-$('preview').addEventListener('error',()=>{clearTimeout(state.timer);hint('网页加载失败，请检查网址和网络连接',true);});
+preview.addEventListener('error',()=>{
+  if(!state.url || state.proxyReported)return;
+  clearTimeout(state.timer);
+  hint('网页加载失败，请检查网址和网络连接',true);
+});
 const motion = createMotion({ state, modes, layout, save });
 
 function setImmersive(enabled) {
@@ -148,11 +158,26 @@ setInterval(updateClock,1000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)updateClock();});
 
 window.addEventListener('message',event=>{
+  if(!state.url || !state.proxied)return;
   if(event.source!==preview.contentWindow)return;
   if(event.origin!==proxyMessageOrigin)return;
-  if(event.data?.type==='folden:preview-shortcut' && state.proxy && document.activeElement===preview)runShortcut(event.data.key);
-  if(event.data?.type==='folden:proxy-ready'){
-    try { const url=normalize(event.data.url);if(url){state.url=url;$('url').value=url;hint('代理页面已响应 · 可切换设备姿态预览');} }catch{}
+  const type=event.data?.type;
+  if(type==='folden:preview-shortcut' && document.activeElement===preview)runShortcut(event.data.key);
+  if(!['folden:proxy-ready','folden:proxy-error'].includes(type))return;
+  let url;
+  try { if(typeof event.data.url==='string')url=normalize(event.data.url); }catch{}
+  if(type==='folden:proxy-ready' && !url)return;
+  if(url){
+    state.url=url;
+    $('url').value=url;
   }
-  if(event.data?.type==='folden:proxy-error')hint('代理连接失败，请检查网址或网络',true);
+  clearTimeout(state.timer);
+  state.proxyReported=true;
+  if(type==='folden:proxy-ready'){
+    hint('代理页面已响应 · 可切换设备姿态预览');
+  }else{
+    const {status,upstream}=event.data;
+    const validStatus=Number.isInteger(status) && status>=400 && status<=599;
+    hint(upstream===true && validStatus ? `目标网站返回 HTTP ${status}` : `代理连接失败${validStatus ? ` · HTTP ${status}` : ''}，请检查网址或网络`,true);
+  }
 });

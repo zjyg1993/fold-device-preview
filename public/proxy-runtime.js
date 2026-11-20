@@ -49,7 +49,7 @@ function proxyRuntime(config) {
       let next=url;
       if(url!=null){next=new URL(route(String(url)),location.href);next.hash=cleanHash(next.hash);next=next.href;}
       const result=original.call(this,state,title,next);
-      queueMicrotask(()=>parent.postMessage({type:'folden:proxy-ready',url:unproxy(location.href)},config.shellOrigin));return result;
+      queueMicrotask(report);return result;
     };
   }
   // Baidu's current search box navigates via location.href rather than a native form.
@@ -91,7 +91,14 @@ function proxyRuntime(config) {
       parent.postMessage({type:'folden:captured',id,bitmap},config.shellOrigin,[bitmap]);
     }catch{parent.postMessage({type:'folden:captured',id,error:true},config.shellOrigin)}
   });
-  const report=()=>{repairHash();parent.postMessage({type:'folden:proxy-ready',url:unproxy(location.href)},config.shellOrigin);};
+  function report() {
+    repairHash();
+    const url = unproxy(location.href);
+    const message = config.status >= 400
+      ? {type:'folden:proxy-error', url, status:config.status, upstream:true}
+      : {type:'folden:proxy-ready', url};
+    parent.postMessage(message,config.shellOrigin);
+  }
   repairHash();
   if(document.readyState==='loading')addEventListener('DOMContentLoaded',report,{once:true});else report();
   addEventListener('popstate',report);

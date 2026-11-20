@@ -17,14 +17,22 @@ async function proxy(req, res, local) {
   const accept = req.headers.accept || '*/*';
   const headers = { 'user-agent': req.headers['user-agent'] || 'Mozilla/5.0', accept, 'accept-language': req.headers['accept-language'] || 'zh-CN,zh;q=0.9', 'accept-encoding':'identity', referer:target.origin+'/' };
   for (const name of ['content-type','range','if-none-match','if-modified-since','x-requested-with']) if(req.headers[name]) headers[name]=req.headers[name];
-  if (!['GET','HEAD'].includes(req.method)) headers.origin = target.origin;
   const controller = new AbortController();
   const timer = setTimeout(()=>controller.abort(),25000);
   const onClose = ()=>{if(!res.writableEnded)controller.abort()};
   res.on('close',onClose);
   try {
     const options = { method:req.method, headers, redirect:'manual', signal:controller.signal };
-    if (!['GET','HEAD'].includes(req.method)) { options.body=req;options.duplex='half'; }
+    if (!['GET','HEAD'].includes(req.method)) {
+      headers.origin = target.origin;
+      // The body is forwarded unchanged. Keep its length when Node received one.
+      const contentLength = req.headers['content-length'];
+      if (contentLength !== undefined) headers['content-length'] = contentLength;
+      if (Number(contentLength) > 0 || req.headers['transfer-encoding']) {
+        options.body = req;
+        options.duplex = 'half';
+      }
+    }
     const upstream = await fetch(target,options);
     const contentType=upstream.headers.get('content-type') || 'application/octet-stream';
     const out = {'Content-Type':contentType,'Cache-Control':'no-store','Access-Control-Allow-Origin':'*','X-Content-Type-Options':'nosniff'};
@@ -45,7 +53,7 @@ async function proxy(req, res, local) {
       let body;try{body=new TextDecoder(encoding||'utf-8').decode(bytes)}catch{body=new TextDecoder().decode(bytes)}
       if (html) {
         const shellOrigin = local.hostname === '127.0.0.1' ? `http://localhost:${port}` : local.origin;
-        body=htmlRewrite(body,target,shellOrigin,await readFile(path.join(root,'proxy-runtime.js'),'utf8'));
+        body=htmlRewrite(body,target,shellOrigin,await readFile(path.join(root,'proxy-runtime.js'),'utf8'),upstream.status);
         body=body.replace(/(<meta\b[^>]*charset\s*=\s*["']?)[\w-]+/gi,'$1utf-8');
         out['Content-Type']='text/html; charset=utf-8';
       } else {body=cssRewrite(body,target);out['Content-Type']='text/css; charset=utf-8';}
