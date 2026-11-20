@@ -74,6 +74,12 @@ function proxyRuntime(config) {
   document.addEventListener('submit',event=>{
     const form=event.target;if(form instanceof HTMLFormElement){setAttribute.call(form,'action',route(form.getAttribute('action')||unproxy(location.href)));if(form.target==='_top'||form.target==='_parent')form.target='_self'}
   },true);
+  window.addEventListener('keydown', event => {
+    if (event.defaultPrevented || event.repeat || event.isComposing || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+    if (!['ArrowLeft', 'ArrowRight', 'Escape'].includes(event.key)) return;
+    if (event.composedPath().some(element => element.isContentEditable || element.matches?.('input, textarea, select, [role="textbox"], [role="combobox"], [role="slider"], [role="spinbutton"]'))) return;
+    parent.postMessage({type:'folden:preview-shortcut', key:event.key}, config.shellOrigin);
+  });
   // Snapshot requests are handled within this isolated origin, never by reading an external iframe from the UI.
   window.addEventListener('message',async event=>{
     if(event.source!==parent||event.origin!==config.shellOrigin||event.data?.type!=='folden:capture')return;

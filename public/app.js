@@ -11,7 +11,6 @@ const paths = {
   'phone-wide': '<rect x="2.5" y="6" width="19" height="12" rx="2"/><path d="M5 10v4"/>',
   'tablet-wide': '<rect x="2" y="4" width="20" height="16" rx="2.5"/><path d="M12 4v16" opacity=".25"/>',
   tablet: '<rect x="4" y="2" width="16" height="20" rx="2.5"/><path d="M4 12h16" opacity=".25"/>',
-  external: '<path d="M14 3h7v7m0-7-10 10M10 5H4v15h15v-6"/>',
   eye: '<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
 };
 const icon = name => `<svg viewBox="0 0 24 24" aria-hidden="true">${paths[name]}</svg>`;
@@ -23,6 +22,10 @@ const modes = {
   outerLandscape: { name:'外屏横屏', w:624, h:432, inner:false, portrait:false },
 };
 const state = { mode:'innerLandscape', url:'', safe:false, theme:'light', proxy:false, timer:null };
+const stage = $('stage');
+const preview = $('preview');
+const immersiveToggle = $('immersive-toggle');
+const foldShortcuts = new Map([['ArrowLeft', 'outerPortrait'], ['ArrowRight', 'innerLandscape']]);
 try { const saved = JSON.parse(localStorage.getItem('folden-preferences') || '{}'); if (modes[saved.mode]) state.mode = saved.mode; if(saved.theme === 'dark') state.theme = 'dark'; } catch {}
 function save() { try { localStorage.setItem('folden-preferences', JSON.stringify({mode:state.mode, theme:state.theme})); } catch {} }
 function hint(text, error=false) { $('hint').textContent=text; $('hint').classList.toggle('error', error); }
@@ -74,7 +77,7 @@ function normalize(raw) {
   return url.href;
 }
 function clearPreview() {
-  clearTimeout(state.timer); state.url=''; $('url').value=''; $('clear').hidden=true; $('preview').hidden=true; $('preview').removeAttribute('src'); $('empty').hidden=false; $('open-external').disabled=true; $('embed-note').hidden=true; hint('支持网址和本地项目地址');
+  clearTimeout(state.timer); state.url=''; $('url').value=''; $('clear').hidden=true; $('preview').hidden=true; $('preview').removeAttribute('src'); $('empty').hidden=false; $('embed-note').hidden=true; hint('');
 }
 function previewURL(target) {
   if(!state.proxy || target.origin===location.origin) return target.href;
@@ -87,32 +90,67 @@ function load(url) {
     // Append without re-encoding the target's existing query string.
     target.search += `${target.search ? '&' : '?'}deviceModel=iPhone%20Duo`;
   }
-  clearTimeout(state.timer);state.url=target.href; $('url').value=target.href; $('clear').hidden=false; $('empty').hidden=true; $('preview').hidden=false; $('open-external').disabled=false; $('embed-note').hidden=false;
+  clearTimeout(state.timer);state.url=target.href; $('url').value=target.href; $('clear').hidden=false; $('empty').hidden=true; $('preview').hidden=false; $('embed-note').hidden=false;
   configurePreview($('preview'), state.proxy && target.origin !== location.origin);
-  $('embed-note').textContent=state.proxy?'外部网址使用本地代理预览；登录与验证页面可用新窗口打开。':'当前直接嵌入网页；可按需手动开启代理。';
+  $('embed-note').textContent=state.proxy?'外部网址通过代理预览。登录与验证可直接访问原网址。':'当前直接嵌入网页；可按需手动开启代理。';
   hint(state.proxy?'正在通过本地代理加载…':'正在直接加载网页…'); $('preview').src=previewURL(target);
-  state.timer=setTimeout(()=>hint('加载时间较长；若网页空白，可尝试新窗口打开'),12000);
+  state.timer=setTimeout(()=>hint('加载时间较长，请检查网址和网络连接'),12000);
 }
 $('url-form').addEventListener('submit', e=>{e.preventDefault();if(motion.busy)return;try { const url=normalize($('url').value); if(url) load(url); else {clearPreview();$('url').focus();} } catch(err) {hint(err.message || '请输入有效网址',true);$('url').focus();} });
 $('url').addEventListener('input',()=>{$('clear').hidden=!$('url').value;});
 $('clear').addEventListener('click',()=>{clearPreview();$('url').focus();});
-$('preview').addEventListener('load',()=>{if(!state.url)return;clearTimeout(state.timer);hint(state.proxy?'代理页面已响应 · 可切换设备姿态预览':'已请求网页 · 可切换设备姿态预览');});
-$('preview').addEventListener('error',()=>{clearTimeout(state.timer);hint('网页加载失败，请检查地址或在新窗口打开',true);});
+preview.addEventListener('load',()=>{
+  preview.contentDocument?.addEventListener('keydown', handleShortcut);
+  if(!state.url)return;
+  clearTimeout(state.timer);
+  hint(state.proxy?'代理页面已响应 · 可切换设备姿态预览':'已请求网页 · 可切换设备姿态预览');
+});
+$('preview').addEventListener('error',()=>{clearTimeout(state.timer);hint('网页加载失败，请检查网址和网络连接',true);});
 const motion = createMotion({ state, modes, layout, save });
+
+function setImmersive(enabled) {
+  document.body.classList.toggle('immersive', enabled);
+  immersiveToggle.setAttribute('aria-checked', String(enabled));
+  (enabled ? stage : immersiveToggle).focus({preventScroll:true});
+}
+
+function runShortcut(key) {
+  if (key === 'Escape' && document.body.classList.contains('immersive')) {
+    setImmersive(false);
+    return true;
+  }
+  const next = foldShortcuts.get(key);
+  if (!next) return false;
+  motion.change(next);
+  return true;
+}
+
+function handleShortcut(event) {
+  if (event.defaultPrevented || event.repeat || event.isComposing || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+  if (event.key !== 'Escape' && !foldShortcuts.has(event.key)) return;
+  if (event.composedPath().some(element => element.isContentEditable || element.matches?.('input, textarea, select, [role="textbox"], [role="combobox"], [role="slider"], [role="spinbutton"]'))) return;
+  if (runShortcut(event.key)) event.preventDefault();
+}
+
+immersiveToggle.addEventListener('click', () => setImmersive(true));
+document.body.addEventListener('click', event => {
+  if ((event.target === stage || event.target === document.body) && document.body.classList.contains('immersive')) setImmersive(false);
+});
+document.addEventListener('keydown', handleShortcut);
 document.querySelectorAll('[data-mode]').forEach(b=>b.addEventListener('click',()=>motion.change(b.dataset.mode)));
 $('theme').addEventListener('click',()=>{state.theme=state.theme==='dark'?'light':'dark';theme();motion.feedback($('theme').querySelector('svg'),'theme');save();});
 $('refresh').addEventListener('click',()=>{motion.feedback($('refresh').querySelector('svg'), 'spin'); if(state.url) load(state.url); else hint('请先输入要预览的网址');});
 $('safe-toggle').addEventListener('click',()=>{state.safe=!state.safe;layout();if(state.safe)motion.feedback($('reserved'),'reveal');save();});
 $('proxy-toggle').addEventListener('click',()=>{state.proxy=!state.proxy;$('proxy-toggle').setAttribute('aria-pressed',String(state.proxy));hint(state.proxy?'外部网址通过本地代理加载':'直接加载：适合已允许嵌入的本地项目');if(state.url)load(state.url);});
-$('open-external').addEventListener('click',()=>{if(state.url) window.open(state.url,'_blank','noopener,noreferrer');});
-new ResizeObserver(layout).observe($('stage'));
+new ResizeObserver(() => { if (!motion.busy) layout(); }).observe(stage);
 theme();layout();updateClock();
 setInterval(updateClock,1000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)updateClock();});
 
 window.addEventListener('message',event=>{
-  if(event.source!==$('preview').contentWindow)return;
+  if(event.source!==preview.contentWindow)return;
   if(event.origin!==proxyMessageOrigin)return;
+  if(event.data?.type==='folden:preview-shortcut' && state.proxy && document.activeElement===preview)runShortcut(event.data.key);
   if(event.data?.type==='folden:proxy-ready'){
     try { const url=normalize(event.data.url);if(url){state.url=url;$('url').value=url;hint('代理页面已响应 · 可切换设备姿态预览');} }catch{}
   }
